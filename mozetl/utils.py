@@ -35,6 +35,9 @@ def write_csv(dataframe, path, header=True):
 
 def write_csv_to_s3(dataframe, bucket, key, header=True):
     path = tempfile.mkdtemp()
+
+    if not os.path.exists(path):
+        os.makedirs(path)
     filepath = os.path.join(path, 'temp.csv')
 
     write_csv(dataframe, filepath, header)
