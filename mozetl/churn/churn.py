@@ -417,6 +417,7 @@ def compute_churn_week(df, week_start):
           .filter(df['submission_date_s3'] <= week_end_slop)
           .filter(df['subsession_start_date'] >= week_start_hyphenated)
           .filter(df['subsession_start_date'] < week_end_excl)
+          .where(F.col("sample_id") == 57)
     )
 
     # take a subset and rename the app_version field
