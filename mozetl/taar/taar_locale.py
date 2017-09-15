@@ -107,8 +107,11 @@ def compute_threshold(addon_df):
 
     # Compute a threshold at the 25th percentile to remove locales with a
     # small number of addons installations.
-    locale_pop_threshold =\
-        addon_install_counts.approxQuantile('sum(pair_cnts)', [0.25], 0.2)[0]
+    first_quartile = (
+        addon_install_counts
+        .approxQuantile('sum(pair_cnts)', [0.25], 0.2)
+    )
+    locale_pop_threshold = first_quartile[0] if first_quartile else 0
 
     # Safety net in case the distribution gets really skewed, we should
     # require 2000 addon installation instances to make recommendations.
