@@ -4,8 +4,10 @@ import boto3
 import json
 import functools
 import pytest
+import shutil
+import os
 from moto import mock_s3
-from mozetl.taar import taar_locale, AMO_DUMP_BUCKET, AMO_DUMP_KEY
+from mozetl.taar import taar_locale, utils
 from pyspark.sql.types import (
     StructField, StructType, StringType,
     LongType, BooleanType, ArrayType, MapType
@@ -111,6 +113,12 @@ fake_amo_sample_legacy = {
 }
 
 
+@pytest.fixture(autouse=True)
+def clear_s3_cache():
+    if os.path.exists(utils.get_s3_cache_dir()):
+        shutil.rmtree(utils.get_s3_cache_dir())
+
+
 @pytest.fixture()
 def generate_data(dataframe_factory):
     return functools.partial(
@@ -189,10 +197,14 @@ def test_load_amo_external_whitelist():
     content = [fake_amo_sample_web_extension, fake_amo_sample_legacy]
 
     conn = boto3.resource('s3', region_name='us-west-2')
-    conn.create_bucket(Bucket=AMO_DUMP_BUCKET)
+    conn.create_bucket(Bucket=taar_locale.AMO_DUMP_BUCKET)
 
     # Store the data in the mocked bucket.
-    conn.Object(AMO_DUMP_BUCKET, key=AMO_DUMP_KEY).put(Body=json.dumps(content))
+    (
+        conn
+        .Object(taar_locale.AMO_DUMP_BUCKET, key=taar_locale.AMO_DUMP_KEY)
+        .put(Body=json.dumps(content))
+    )
 
     # Check that the web_extension item is still present and the legacy addon is absent.
     white_listed_addons = taar_locale.load_amo_external_whitelist()

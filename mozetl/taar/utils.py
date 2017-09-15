@@ -3,9 +3,8 @@ import json
 import logging
 import os
 import requests
-import shutil
 from botocore.exceptions import ClientError
-from tempfile import gettempdir, NamedTemporaryFile
+from tempfile import gettempdir
 
 
 logger = logging.getLogger(__name__)
@@ -28,8 +27,15 @@ def fetch_json(uri):
     return r.json()
 
 
+def get_s3_cache_dir():
+    return os.path.join(gettempdir(), 'taar')
+
+
 def get_s3_cache_filename(s3_bucket, s3_key):
-    return os.path.join(gettempdir(),
+    cache_dir = get_s3_cache_dir()
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    return os.path.join(cache_dir,
                         '_'.join([s3_bucket, s3_key]).replace('/', '_'))
 
 
@@ -41,22 +47,14 @@ def get_s3_json_content(s3_bucket, s3_key):
     local_path = get_s3_cache_filename(s3_bucket, s3_key)
 
     if not os.path.exists(local_path):
-        # Use NamedTemporaryFile, so that the file gets removed.
-        with NamedTemporaryFile() as temp_file:
-            try:
-                s3 = boto3.client('s3')
-                s3.download_fileobj(s3_bucket, s3_key, temp_file)
-                # Flush the file.
-                temp_file.flush()
-            except ClientError:
-                logger.exception("Failed to download from S3", extra={
-                    "bucket": s3_bucket,
-                    "key": s3_key})
-                return None
-
-            with open(local_path, 'wb') as data:
-                temp_file.seek(0)
-                shutil.copyfileobj(temp_file, data)
+        try:
+            s3 = boto3.client('s3')
+            s3.download_file(s3_bucket, s3_key, local_path)
+        except ClientError:
+            logger.exception("Failed to download from S3", extra={
+                "bucket": s3_bucket,
+                "key": s3_key})
+            return None
 
     # It can happen to have corrupted files. Account for the
     # sad reality of life.
