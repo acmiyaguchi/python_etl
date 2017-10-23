@@ -7,6 +7,7 @@ from mozetl.experimentsdaily import rollup as experimentsdaily
 from mozetl.search import dashboard, search_rollups
 from mozetl.sync import bookmark_validation
 from mozetl.taar import taar_locale, taar_similarity, taar_legacy
+from mozetl.databricks_poc import job as example_python_job
 
 
 @click.group()
@@ -24,6 +25,7 @@ entry_point.add_command(bookmark_validation.main, "sync_bookmark_validation")
 entry_point.add_command(taar_locale.main, "taar_locale")
 entry_point.add_command(taar_similarity.main, "taar_similarity")
 entry_point.add_command(taar_legacy.main, "taar_legacy")
+entry_point.add_command(example_python_job.main, "example_python")
 
 if __name__ == '__main__':
     entry_point()
