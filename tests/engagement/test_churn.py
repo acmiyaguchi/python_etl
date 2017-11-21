@@ -1,4 +1,5 @@
 import functools
+import copy
 
 import pytest
 from pyspark.sql import functions as F
@@ -383,3 +384,43 @@ def test_sync_usage(test_transform):
 
     for test in test_func:
         test(df)
+
+
+def test_attribution_from_new_profile(effective_version,
+                                      generate_main_summary_data,
+                                      generate_new_profile_data):
+    main_summary = generate_main_summary_data([
+        {'client_id': '1', 'attribution': {'source': 'mozilla.org'}},
+        {'client_id': '3', 'attribution': None},
+        {'client_id': '4', 'attribution': None},
+    ])
+
+    def update_attribution(attribution):
+        # only updates the attribution section in the environment
+        env = copy.deepcopy(data.new_profile_sample['environment'])
+        env['settings']['attribution'] = attribution
+        return env
+
+    # The case for NULL in new_profile and NOT NULL in main_summary is
+    # explicitly not tested here because it is not a well defined behavior.
+    new_profile = generate_new_profile_data([
+        {'client_id': '2', 'environment': update_attribution({'source': 'mozilla.org'})},
+        # overwrite the null value
+        {'client_id': '3', 'environment': update_attribution({'source': 'mozilla.org'})},
+        # overwrite the null value, but is not a ping of itself
+        {
+            'client_id': '4',
+            'environment': update_attribution({'source': 'mozilla.org'}),
+            'submission': SUBSESSION_START.shift(days=-7).format("YYYYMMDD"),
+        },
+        # not counted toward total
+        {
+            'client_id': '5',
+            'environment': update_attribution({'source': 'mozilla.org'}),
+            'submission': SUBSESSION_START.shift(days=-7).format("YYYYMMDD"),
+        },
+    ])
+    sources = job.extract(main_summary, new_profile, WEEK_START_DS, 1, 0, False)
+    df = job.transform(sources, effective_version, WEEK_START_DS)
+
+    assert df.where("source='mozilla.org'").agg(F.sum("n_profiles")).first()[0] == 4
