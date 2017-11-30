@@ -37,7 +37,10 @@ from . import release, utils
 from .schema import churn_schema
 from .utils import DS, DS_NODASH
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 
@@ -524,10 +527,15 @@ def main(start_date, bucket, prefix, input_bucket, input_prefix,
 
     extracted = extract(main_summary, new_profile, start_ds, period, slack, sample)
 
+    logger.info("{}".format(extracted.count()))
+
     # Build the "effective version" cache:
     effective_version = release.create_effective_version_table(spark)
 
     churn = transform(extracted, effective_version, start_ds)
+
+    logger.info("{}".format(extracted.count()))
+
     save(churn, bucket, prefix, start_ds)
 
 
