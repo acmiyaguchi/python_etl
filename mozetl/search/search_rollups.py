@@ -63,39 +63,6 @@ def explode_searches(dataframe):
     return exploded_searches.union(null_searches)
 
 
-def with_shares(dataframe):
-    """ Assign each client a weight for the contribution toward the
-    rollup aggregates.
-
-    Given a single profile with N permutations of
-    (search_provider, country, locale, distribution_id,
-    default_provider), N = an integer > 0, assign each row a
-    profile_share of 1/N.
-
-    Example #1: a user switches default mid-day -> she generates two
-    rows, each with profile_count = 1 and profile_share = 0.5.
-
-    Example #2: a profile is cloned to ten laptops, the users of which
-    change default engines, travel across country borders, etc. ->
-    they generate N rows whose profile_counts sum to 10 and whose
-    profile_share sums to 1.0.
-    """
-    shares_df = (
-        dataframe
-        .groupBy("profile")
-        .count()
-        .where("count > 1")
-        .withColumn("profile_share", F.lit(1.0) / F.col("count"))
-    )
-
-    # left join and default shares to 1.0
-    return (
-        dataframe
-        .join(shares_df, "profile", "left")
-        .na.fill(1.0, ["profile_share"])
-    )
-
-
 def rollup_searches(dataframe, attributes, mode):
     """ Gather all permutations of columns specified by the attributes arg:
     1) How many searches fall into each permutation? -> search_count
@@ -168,11 +135,7 @@ def transform(main_summary, mode):
     dataframe = main_summary.select(columns)
     exploded = explode_searches(dataframe).na.fill(defaults)
 
-    # don't include shares if we process the monthly rollup
-    if mode == "monthly":
-        processed = exploded
-    else:
-        processed = with_shares(exploded)
+    processed = exploded.withColumn("profile_shares", F.lit(1.0))
     search_rollup = rollup_searches(processed, attributes, mode)
 
     return search_rollup
